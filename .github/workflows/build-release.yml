@@ -7,13 +7,14 @@ on:
   pull_request:
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -96,7 +97,7 @@ jobs:
             prerelease=false
           elif [ "${IS_PR}" = "true" ] && [ "${LABEL_MATCH}" = "true" ]; then
             release_needed=true
-            tag_name="pr-${PR_NUMBER}-${{ github.run_id }}"
+            tag_name="pr-${PR_NUMBER}-${GITHUB_RUN_ID}"
             release_name="PR #${PR_NUMBER} preview"
             prerelease=true
           fi
