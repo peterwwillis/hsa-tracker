@@ -5,6 +5,7 @@ on:
     tags:
       - "v*"
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
 
 permissions: {}
 
@@ -101,7 +102,8 @@ jobs:
             fi
             if [ "${LABEL_MATCH}" = "true" ]; then
               release_needed=true
-              tag_name="pr-${PR_NUMBER}-${GITHUB_SHA::7}"
+              SHA_SHORT="$(echo "$GITHUB_SHA" | cut -c1-7)"
+              tag_name="pr-${PR_NUMBER}-${SHA_SHORT}"
               release_name="PR #${PR_NUMBER} preview"
               prerelease=true
             fi
@@ -126,5 +128,4 @@ jobs:
           name: ${{ steps.meta.outputs.release_name }}
           prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
           generate_release_notes: true
-          overwrite: ${{ steps.meta.outputs.prerelease == 'true' }}
           files: artifacts/**/*
