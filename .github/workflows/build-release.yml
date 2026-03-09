@@ -83,23 +83,25 @@ jobs:
           tag_name=""
           release_name=""
           prerelease=true
-          PR_NUMBER="$(jq -r '.pull_request.number // ""' "$GITHUB_EVENT_PATH")"
-          if jq -e '.pull_request.labels[]? | select(.name=="release_newver")' "$GITHUB_EVENT_PATH" >/dev/null; then
-            LABEL_MATCH=true
-          else
-            LABEL_MATCH=false
-          fi
+          PR_NUMBER=""
+          LABEL_MATCH=false
 
           if [ "${IS_TAG}" = "true" ]; then
             release_needed=true
             tag_name="${REF_NAME}"
             release_name="Release ${tag_name}"
             prerelease=false
-          elif [ "${IS_PR}" = "true" ] && [ "${LABEL_MATCH}" = "true" ]; then
-            release_needed=true
-            tag_name="pr-${PR_NUMBER}-${GITHUB_RUN_ID}"
-            release_name="PR #${PR_NUMBER} preview"
-            prerelease=true
+          elif [ "${IS_PR}" = "true" ]; then
+            PR_NUMBER="$(jq -r '.pull_request.number // ""' "$GITHUB_EVENT_PATH")"
+            if jq -e '.pull_request.labels[]? | select(.name=="release_newver")' "$GITHUB_EVENT_PATH" >/dev/null; then
+              LABEL_MATCH=true
+            fi
+            if [ "${LABEL_MATCH}" = "true" ]; then
+              release_needed=true
+              tag_name="pr-${PR_NUMBER}-${GITHUB_RUN_ID}"
+              release_name="PR #${PR_NUMBER} preview"
+              prerelease=true
+            fi
           fi
 
           echo "release_needed=${release_needed}" >> "$GITHUB_OUTPUT"
