@@ -40,6 +40,7 @@ def _runtime_paths():
 
 BUNDLE_DIR, DATA_DIR = _runtime_paths()
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+# Load env from the bundled/writable data dir first, then allow local overrides.
 load_dotenv(DATA_DIR / ".env")
 load_dotenv()
 
