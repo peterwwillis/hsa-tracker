@@ -42,7 +42,7 @@ jobs:
           EXT=""
           if [ "$OS" = "Windows" ]; then EXT=".exe"; fi
           SRC="dist/hsa-tracker${EXT}"
-          DEST="hsa-tracker-${OS,,}${EXT}"
+          DEST="hsa-tracker-$(echo "$OS" | tr '[:upper:]' '[:lower:]')${EXT}"
           mkdir -p upload
           cp "$SRC" "upload/$DEST"
           echo "asset=upload/$DEST" >> "$GITHUB_OUTPUT"
@@ -93,8 +93,8 @@ jobs:
           IS_TAG: ${{ github.ref_type == 'tag' }}
           REF_NAME: ${{ github.ref_name }}
           IS_PR: ${{ github.event_name == 'pull_request' }}
-          PR_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
-          LABEL_MATCH: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'release_newver') || false }}
+          PR_NUMBER: ${{ github.event_name == 'pull_request' ? github.event.pull_request.number : '' }}
+          LABEL_MATCH: ${{ github.event_name == 'pull_request' ? contains(github.event.pull_request.labels.*.name, 'release_newver') : false }}
 
       - name: Download artifacts
         if: steps.meta.outputs.release_needed == 'true'
