@@ -17,6 +17,19 @@ You will also need:
 
 `SETUP.md` covers the full Google Cloud, OAuth, and `launchd` setup.
 
+## Single-file binaries (macOS, Windows, Linux)
+
+You can package the app as a single executable with PyInstaller:
+
+```bash
+uv sync --extra build
+uv run pyinstaller hsa_tracker.spec --clean
+```
+
+The binary will be written to `dist/` (`hsa-tracker` on macOS/Linux, `hsa-tracker.exe` on Windows).
+
+Runtime files live next to the binary by default (`.env`, `credentials.json`, `token.json`, `receipt_hashes.json`, `uploads/`). To keep them somewhere else, set `HSA_DATA_DIR=/path/to/writable/dir` before launching the binary.
+
 ## What it does
 
 - Upload a PDF receipt from the browser
