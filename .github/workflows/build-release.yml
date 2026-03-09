@@ -73,23 +73,16 @@ jobs:
           release_name=""
           prerelease=true
 
-          if [ "${{ github.ref_type }}" = "tag" ]; then
+          if [ "${IS_TAG}" = "true" ]; then
             release_needed=true
-            tag_name="${{ github.ref_name }}"
+            tag_name="${REF_NAME}"
             release_name="Release ${tag_name}"
             prerelease=false
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            if python - <<'PY'
-import json, os
-labels = json.loads(os.getenv("LABELS", "[]"))
-print(any(lbl.get("name") == "release_newver" for lbl in labels))
-PY
-            then
-              release_needed=true
-              tag_name="pr-${{ github.event.pull_request.number }}-${{ github.run_id }}"
-              release_name="PR #${{ github.event.pull_request.number }} preview"
-              prerelease=true
-            fi
+          elif [ "${IS_PR}" = "true" ] && [ "${LABEL_MATCH}" = "true" ]; then
+            release_needed=true
+            tag_name="pr-${PR_NUMBER}-${{ github.run_id }}"
+            release_name="PR #${PR_NUMBER} preview"
+            prerelease=true
           fi
 
           echo "release_needed=${release_needed}" >> "$GITHUB_OUTPUT"
@@ -97,7 +90,11 @@ PY
           echo "release_name=${release_name}" >> "$GITHUB_OUTPUT"
           echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
         env:
-          LABELS: ${{ toJson(github.event.pull_request.labels) }}
+          IS_TAG: ${{ github.ref_type == 'tag' }}
+          REF_NAME: ${{ github.ref_name }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          PR_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || '' }}
+          LABEL_MATCH: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'release_newver') || false }}
 
       - name: Download artifacts
         if: steps.meta.outputs.release_needed == 'true'
