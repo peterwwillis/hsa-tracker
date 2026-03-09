@@ -91,7 +91,7 @@ jobs:
             tag_name="${REF_NAME}"
             release_name="Release ${tag_name}"
             prerelease=false
-            # Stable releases require tags like v1.2 or v1.2.3; anything else is treated as a prerelease.
+            # Stable releases require tags like v1.2, 1.2, v1.2.3, or 1.2.3; anything else is treated as a prerelease.
             if ! [[ "${tag_name}" =~ ^v?[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
               prerelease=true
             fi
