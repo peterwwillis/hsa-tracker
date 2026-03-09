@@ -91,6 +91,9 @@ jobs:
             tag_name="${REF_NAME}"
             release_name="Release ${tag_name}"
             prerelease=false
+            if ! [[ "${tag_name}" =~ ^v?[0-9]+(\.[0-9]+){0,2}$ ]]; then
+              prerelease=true
+            fi
           elif [ "${IS_PR}" = "true" ]; then
             PR_NUMBER="$(jq -r '.pull_request.number // ""' "$GITHUB_EVENT_PATH")"
             if jq -e '.pull_request.labels[]? | select(.name=="release_newver")' "$GITHUB_EVENT_PATH" >/dev/null; then
@@ -98,7 +101,7 @@ jobs:
             fi
             if [ "${LABEL_MATCH}" = "true" ]; then
               release_needed=true
-              tag_name="pr-${PR_NUMBER}-${GITHUB_RUN_ID}"
+              tag_name="pr-${PR_NUMBER}-${GITHUB_SHA::7}"
               release_name="PR #${PR_NUMBER} preview"
               prerelease=true
             fi
