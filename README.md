@@ -25,6 +25,12 @@ You will also need:
 - File the PDF into a `YYYY-MM` Google Drive folder
 - Append a row with a Drive link to your Google Sheet
 
+  
+
+https://github.com/user-attachments/assets/e18cc4fa-361e-414c-abbf-503624f9195b
+
+
+
 ## Local files
 
 - `.env`: local configuration, not committed
