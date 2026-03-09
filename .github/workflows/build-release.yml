@@ -3,7 +3,7 @@ name: Build and Release Binaries
 on:
   push:
     tags:
-      - "*"
+      - "v*"
   pull_request:
   workflow_dispatch:
 
@@ -91,6 +91,7 @@ jobs:
             tag_name="${REF_NAME}"
             release_name="Release ${tag_name}"
             prerelease=false
+            # Stable releases require tags like v1.2 or v1.2.3; anything else is treated as a prerelease.
             if ! [[ "${tag_name}" =~ ^v?[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
               prerelease=true
             fi
@@ -101,7 +102,7 @@ jobs:
             fi
             if [ "${LABEL_MATCH}" = "true" ]; then
               release_needed=true
-              tag_name="pr-${PR_NUMBER}"
+              tag_name="pr-${PR_NUMBER}-${GITHUB_SHA::7}"
               release_name="PR #${PR_NUMBER} preview"
               prerelease=true
             fi
@@ -127,4 +128,4 @@ jobs:
           prerelease: ${{ fromJSON(steps.meta.outputs.prerelease) }}
           generate_release_notes: true
           overwrite: true
-          files: artifacts/*/*
+          files: artifacts/**/*
