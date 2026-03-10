@@ -37,12 +37,29 @@ jobs:
 
       - name: Build single binary
         shell: bash
+        env:
+          # Ensure Nuitka can download required helper tools (e.g., Dependency Walker on Windows) non-interactively.
+          NUITKA_DOWNLOAD_DEPENDENCY_WALKER: "1"
+          NUITKA_ASSUME_YES_FOR_DOWNLOADS: "1"
         run: |
           set -eo pipefail
+          python - <<'PY'
+import datetime
+ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+print("Starting Nuitka onefile build at", ts, flush=True)
+PY
           uv run python -m nuitka --onefile --standalone \
             --include-data-dir=templates=templates \
+            --assume-yes-for-downloads \
+            --show-progress \
+            --verbose \
             --output-filename=hsa-tracker \
             app.py
+          python - <<'PY'
+import datetime
+ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+print("Completed Nuitka build at", ts, flush=True)
+PY
 
       - name: Locate binary
         id: locate
