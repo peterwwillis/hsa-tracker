@@ -5,11 +5,33 @@ Drop a PDF receipt → extracts data → files it in Google Drive → logs it in
 
 import hashlib
 import os
+import importlib
+import importlib.abc
+import importlib.util
+import sys
+from types import ModuleType
 
 os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
 
+# Ensure charset_normalizer never fails on missing mypyc extensions packaged by PyInstaller.
+# We redirect any charset_normalizer.*__mypyc import to the pure-Python fallback module.
+class _CharsetNormalizerMypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.startswith("charset_normalizer.") and fullname.endswith("__mypyc"):
+            return importlib.util.spec_from_loader(fullname, self)
+        return None
+
+    def create_module(self, spec):
+        return None
+
+    def exec_module(self, module):
+        fallback = importlib.import_module("charset_normalizer.cd")
+        module.__dict__.update(fallback.__dict__)
+
+
+sys.meta_path.insert(0, _CharsetNormalizerMypycRedirector())
+
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 
