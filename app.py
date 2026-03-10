@@ -32,9 +32,11 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
     PyInstaller-built binaries can miss hashed MyPyC extension modules. This
     meta-path loader ensures any charset_normalizer.*__mypyc import resolves to
-    the available pure-Python module so startup never crashes.
+    the available pure-Python module so startup never crashes. Finder/loader are
+    combined here to keep the interception logic together.
     """
     def find_spec(self, fullname, path=None, target=None):
+        """Return a loader spec for charset_normalizer hashed MyPyC modules."""
         parts = fullname.split(".")
         # MyPyC modules can be hashed (e.g., 81d...__mypyc) or named md__mypyc/cd__mypyc.
         if len(parts) >= 2 and parts[0] == "charset_normalizer" and parts[-1].endswith("__mypyc"):
@@ -45,6 +47,7 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         return None
 
     def exec_module(self, module):
+        """Resolve to md → cd → stub to keep charset_normalizer importable."""
         fallback = None
         # Try the pure-Python implementations first:
         # - md: main detection path
