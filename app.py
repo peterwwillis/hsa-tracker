@@ -15,7 +15,7 @@ os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
 
 # Ensure charset_normalizer never fails on missing mypyc extensions packaged by PyInstaller.
 # We redirect any charset_normalizer.*__mypyc import to the pure-Python fallback module.
-class _CharsetNormalizerMypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
     def find_spec(self, fullname, path=None, target=None):
         parts = fullname.split(".")
         if len(parts) >= 2 and parts[0] == "charset_normalizer" and parts[-1].endswith("__mypyc"):
@@ -26,13 +26,15 @@ class _CharsetNormalizerMypycRedirector(importlib.abc.MetaPathFinder, importlib.
         return None
 
     def exec_module(self, module):
+        fallback = None
         for candidate in ("charset_normalizer.md", "charset_normalizer.cd"):
             try:
                 fallback = importlib.import_module(candidate)
                 break
             except ImportError:
                 pass
-        else:
+
+        if fallback is None:
             fallback = ModuleType("charset_normalizer_stub")
             def _return_empty_list(*args, **kwargs):
                 return []
@@ -43,7 +45,7 @@ class _CharsetNormalizerMypycRedirector(importlib.abc.MetaPathFinder, importlib.
         module.__dict__.update(fallback.__dict__)
 
 
-sys.meta_path.insert(0, _CharsetNormalizerMypycRedirector())
+sys.meta_path.insert(0, _MypycRedirector())
 
 import json
 from datetime import datetime
