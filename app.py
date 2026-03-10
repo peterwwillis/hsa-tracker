@@ -4,6 +4,7 @@ Drop a PDF receipt → extracts data → files it in Google Drive → logs it in
 """
 
 import hashlib
+import logging
 import os
 import importlib
 import importlib.abc
@@ -15,6 +16,7 @@ os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
 
 # Fallback stub used if neither pure-Python charset_normalizer module is available.
 def _create_stub_module() -> ModuleType:
+    """Return a minimal charset_normalizer stub that yields no guesses."""
     stub = ModuleType("charset_normalizer_stub")
     def _stub_function(*args, **kwargs):
         # Indicate no encoding guesses; callers can handle empty results safely.
@@ -57,6 +59,7 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
                 fallback = importlib.import_module(candidate)
                 break
             except ImportError:
+                logging.debug("charset_normalizer fallback %s unavailable", candidate)
                 pass
 
         if fallback is None:
