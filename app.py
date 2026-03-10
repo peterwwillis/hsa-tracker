@@ -13,6 +13,18 @@ from types import ModuleType
 
 os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
 
+# Fallback stub used if neither pure-Python charset_normalizer module is available.
+def _create_stub_module() -> ModuleType:
+    stub = ModuleType("charset_normalizer_stub")
+    def _stub_function(*args, **kwargs):
+        # Indicate no encoding guesses; callers can handle empty results safely.
+        return []
+    stub.from_bytes = _stub_function
+    stub.from_fp = _stub_function
+    stub.from_path = _stub_function
+    stub.is_binary = lambda *args, **kwargs: False
+    return stub
+
 # Ensure charset_normalizer never fails on missing mypyc extensions packaged by PyInstaller.
 # We redirect any charset_normalizer.*__mypyc import to the pure-Python fallback module.
 class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
@@ -24,6 +36,7 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
     """
     def find_spec(self, fullname, path=None, target=None):
         parts = fullname.split(".")
+        # MyPyC modules can be hashed (e.g., 81d...__mypyc) or named md__mypyc/cd__mypyc.
         if len(parts) >= 2 and parts[0] == "charset_normalizer" and parts[-1].endswith("__mypyc"):
             return importlib.util.spec_from_loader(fullname, self)
         return None
@@ -33,8 +46,9 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
     def exec_module(self, module):
         fallback = None
-        # Try the pure-Python implementations first; md is preferred, cd is the
-        # compatible alternate shipped alongside the compiled extensions.
+        # Try the pure-Python implementations first:
+        # - md: main detection path
+        # - cd: compatible alternate shipped with compiled extensions
         for candidate in ("charset_normalizer.md", "charset_normalizer.cd"):
             try:
                 fallback = importlib.import_module(candidate)
@@ -43,14 +57,7 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
                 pass
 
         if fallback is None:
-            fallback = ModuleType("charset_normalizer_stub")
-            def _stub_function(*args, **kwargs):
-                # Indicate no encoding guesses; callers can handle empty results safely.
-                return []
-            fallback.from_bytes = _stub_function
-            fallback.from_fp = _stub_function
-            fallback.from_path = _stub_function
-            fallback.is_binary = lambda *args, **kwargs: False
+            fallback = _create_stub_module()
         module.__dict__.update(fallback.__dict__)
 
 
