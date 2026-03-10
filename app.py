@@ -44,11 +44,12 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
         if fallback is None:
             fallback = ModuleType("charset_normalizer_stub")
-            def _stub_fallback(*args, **kwargs):
+            def _stub_function(*args, **kwargs):
+                # Indicate no encoding guesses; callers can handle empty results safely.
                 return []
-            fallback.from_bytes = _stub_fallback
-            fallback.from_fp = _stub_fallback
-            fallback.from_path = _stub_fallback
+            fallback.from_bytes = _stub_function
+            fallback.from_fp = _stub_function
+            fallback.from_path = _stub_function
             fallback.is_binary = lambda *args, **kwargs: False
         module.__dict__.update(fallback.__dict__)
 
