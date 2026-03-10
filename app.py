@@ -12,9 +12,6 @@ import importlib.util
 import sys
 from types import ModuleType
 
-if not logging.getLogger().handlers:
-    logging.basicConfig(level=logging.INFO)
-
 os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
 
 _MYPYC_SUFFIX = "__mypyc"
@@ -66,14 +63,15 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
                 fallback = importlib.import_module(candidate)
                 break
             except ImportError:
-                logging.debug("charset_normalizer fallback %s unavailable", candidate)
+                pass
 
         if fallback is None:
             fallback = _create_stub_module()
+            logging.info("charset_normalizer mypyc extensions missing; using stub fallback")
         module.__dict__.update(fallback.__dict__)
 
 
-sys.meta_path.insert(0, _MypycRedirector())
+sys.meta_path.append(_MypycRedirector())
 
 import json
 from datetime import datetime
