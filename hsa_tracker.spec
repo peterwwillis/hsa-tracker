@@ -3,6 +3,7 @@ from pathlib import Path
 
 from PyInstaller.building.build_main import Analysis, EXE, PYZ
 from PyInstaller.utils.hooks import collect_all
+import charset_normalizer
 
 block_cipher = None
 
@@ -15,6 +16,14 @@ cn_datas, cn_binaries, cn_hiddenimports = collect_all("charset_normalizer")
 datas += cn_datas
 binaries += cn_binaries
 hiddenimports += cn_hiddenimports
+
+# Explicitly bundle any mypyc-built charset_normalizer extensions with hashed names
+cn_pkg_path = Path(charset_normalizer.__file__).parent
+for mypyc_ext in cn_pkg_path.glob("*__mypyc.*"):
+    binaries.append((str(mypyc_ext), "charset_normalizer"))
+    mod_name = f"charset_normalizer.{mypyc_ext.stem}"
+    if mod_name not in hiddenimports:
+        hiddenimports.append(mod_name)
 
 a = Analysis(
     ["app.py"],
