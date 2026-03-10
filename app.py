@@ -30,10 +30,16 @@ class _CharsetNormalizerMypycRedirector(importlib.abc.MetaPathFinder, importlib.
             try:
                 fallback = importlib.import_module(candidate)
                 break
-            except Exception:
+            except ImportError:
                 continue
         else:
             fallback = ModuleType("charset_normalizer_stub")
+            def _noop(*args, **kwargs):
+                return []
+            fallback.from_bytes = _noop
+            fallback.from_fp = _noop
+            fallback.from_path = _noop
+            fallback.is_binary = lambda *args, **kwargs: False
         module.__dict__.update(fallback.__dict__)
 
 
