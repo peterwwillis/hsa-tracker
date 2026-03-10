@@ -43,16 +43,20 @@ jobs:
           NUITKA_ASSUME_YES_FOR_DOWNLOADS: "1"
         run: |
           set -eo pipefail
+          
           python - <<'PY'
           import datetime
           ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
           print("Starting Nuitka onefile build at", ts, flush=True)
           PY
+          
           uv run python -m nuitka --onefile --standalone \
             --include-data-dir=templates=templates \
             --assume-yes-for-downloads \
+            --show-scons \
             --output-filename=hsa-tracker \
             app.py
+          
           python - <<'PY'
           import datetime
           ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -67,20 +71,26 @@ jobs:
           OS="${{ runner.os }}"
           BASE="hsa-tracker"
           BIN="$BASE"
+          
           if [ "$OS" = "Windows" ]; then BIN="hsa-tracker.exe"; fi
+          
           # Nuitka onefile on macOS can emit a `.bin` suffix (to avoid clashing with app bundles); fall back if so.
           if [ "$OS" = "macOS" ] && [ ! -f "$BIN" ] && [ -f "${BASE}.bin" ]; then BIN="${BASE}.bin"; fi
+          
           if [ ! -f "$BIN" ]; then
             echo "Binary $BIN not found"
             ls -al .
             exit 1
           fi
+          
           DEST="hsa-tracker-$(echo "$OS" | tr '[:upper:]' '[:lower:]')"
+          
           case "$OS" in
             Windows) DEST="${DEST}.exe" ;;
             # Mirror Nuitka's macOS `.bin` output when present so the artifact name matches.
             macOS) if [ "$BIN" = "${BASE}.bin" ]; then DEST="${DEST}.bin"; fi ;;
           esac
+          
           echo "bin=$BIN" >> "$GITHUB_OUTPUT"
           echo "dest=$DEST" >> "$GITHUB_OUTPUT"
 
@@ -94,9 +104,11 @@ jobs:
             ls -al .
             exit 1
           fi
+          
           PORT=5050
           MAX_RETRIES=30
           RETRY_DELAY=1
+          
           "./$BIN" &
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true' EXIT
@@ -122,8 +134,10 @@ jobs:
         run: |
           BIN="${{ steps.locate.outputs.bin }}"
           DEST="${{ steps.locate.outputs.dest }}"
+          
           mkdir -p upload
           cp "$BIN" "upload/$DEST"
+          
           echo "asset=upload/$DEST" >> "$GITHUB_OUTPUT"
           echo "name=$DEST" >> "$GITHUB_OUTPUT"
 
