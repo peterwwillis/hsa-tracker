@@ -22,12 +22,21 @@ uv sync
 
 ## 3. Create desktop OAuth credentials
 
-1. Go to **APIs & Services -> Credentials**.
-2. If prompted, configure the OAuth consent screen.
-3. Create a new **OAuth client ID**.
-4. Choose **Desktop app**.
-5. Download the JSON file.
-6. Save it as `credentials.json` in the repo root, next to `app.py`.
+A **Desktop app OAuth client ID** is a Google Cloud credential type designed for
+applications that run locally on your computer (as opposed to credentials for web
+servers or service accounts). It lets the app open a browser tab where you sign in
+with your Google account and grant access, then stores the resulting token locally
+so you do not need to sign in again on the next run.
+
+To create one:
+
+1. Go to **APIs & Services → Credentials** in [Google Cloud Console](https://console.cloud.google.com/).
+2. If prompted, configure the **OAuth consent screen** (choose *External* for personal accounts, fill in the app name and your email).
+3. Click **+ Create Credentials → OAuth client ID**.
+4. Under *Application type*, choose **Desktop app**.
+5. Give it any name (e.g. "HSA Tracker") and click **Create**.
+6. Click **Download JSON** on the confirmation dialog (or the ⬇ icon next to it in the credentials list).
+7. Save the downloaded file as `credentials.json` in the repo root, next to `app.py`.
 
 If Google shows an unverified-app warning during the first login, that is expected for a personal desktop OAuth client.
 
@@ -44,12 +53,16 @@ If Google shows an unverified-app warning during the first login, that is expect
 cp .env.example .env
 ```
 
-Edit `.env` and set:
+Open `.env` in a text editor and fill in the required values:
 
-- `SPREADSHEET_ID`
-- `DRIVE_FOLDER_ID`
-- `SHEET_NAME`
-- `OPENAI_API_KEY` if you want optional AI field extraction
+- `SPREADSHEET_ID` – the ID from your Google Sheet URL
+  (e.g. `https://docs.google.com/spreadsheets/d/<ID>/edit`)
+- `DRIVE_FOLDER_ID` – the ID from your Google Drive folder URL
+  (e.g. `https://drive.google.com/drive/folders/<ID>`)
+- `SHEET_NAME` – the tab name inside the spreadsheet (default: `Sheet1`)
+- `OPENAI_API_KEY` – your OpenAI API key if you want AI-assisted field
+  extraction; leave blank to use manual entry only.
+  Get a key at <https://platform.openai.com/api-keys>.
 
 ## 6. Run locally
 

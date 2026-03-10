@@ -17,6 +17,21 @@ You will also need:
 
 `SETUP.md` covers the full Google Cloud, OAuth, and `launchd` setup.
 
+## Download pre-built releases
+
+Pre-built binaries for macOS, Linux, and Windows are available on the
+[GitHub Releases page](https://github.com/peterwwillis/hsa-tracker/releases).
+
+Download the binary for your platform. On macOS you must remove Apple's
+quarantine flag before the binary will run:
+
+```bash
+chmod 755 hsa-tracker-macos
+xattr -d com.apple.quarantine hsa-tracker-macos
+```
+
+Then run it from the same directory as your `.env` and `credentials.json` files.
+
 ## Single-file binaries (macOS, Windows, Linux)
 
 Package with Nuitka:
