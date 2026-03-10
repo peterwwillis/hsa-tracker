@@ -12,7 +12,12 @@ import importlib.util
 import sys
 from types import ModuleType
 
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO)
+
 os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
+
+_MYPYC_SUFFIX = "__mypyc"
 
 # Fallback stub used if neither pure-Python charset_normalizer module is available.
 def _empty_guess_stub(*args, **kwargs):
@@ -42,7 +47,7 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         """Return a loader spec for charset_normalizer hashed MyPyC modules."""
         parts = fullname.split(".")
         # MyPyC modules can be hashed (e.g., 81d...__mypyc) or named md__mypyc/cd__mypyc.
-        if len(parts) >= 2 and parts[0] == "charset_normalizer" and parts[-1].endswith("__mypyc"):
+        if len(parts) >= 2 and parts[0] == "charset_normalizer" and parts[-1].endswith(_MYPYC_SUFFIX):
             return importlib.util.spec_from_loader(fullname, self)
         return None
 
