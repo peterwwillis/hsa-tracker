@@ -41,11 +41,12 @@ jobs:
       - name: Smoke test binary
         shell: bash
         run: |
+          set -euo pipefail
           OS="${{ runner.os }}"
           EXT=""
           if [ "$OS" = "Windows" ]; then EXT=".exe"; fi
           BIN="dist/hsa-tracker${EXT}"
-          "$BIN" --help >/dev/null
+          "$BIN" --help
 
       - name: Prepare artifact
         id: prep
