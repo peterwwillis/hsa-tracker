@@ -71,6 +71,10 @@ SHEET_NAME = os.getenv("SHEET_NAME", "Sheet1").strip() or "Sheet1"
 
 # Optional — set OPENAI_API_KEY to enable auto-extraction
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+# Optional — override the OpenAI-compatible API base URL (e.g. for a local LLM)
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip() or None
+# Optional — override the model used for extraction (default: gpt-4o-mini)
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
 
 
 def missing_google_config() -> list[str]:
@@ -177,9 +181,12 @@ def extract_fields_with_openai(text: str, filename: str) -> dict | None:
     try:
         from openai import OpenAI
 
-        client = OpenAI(api_key=OPENAI_API_KEY)
+        client_kwargs = {"api_key": OPENAI_API_KEY}
+        if OPENAI_BASE_URL:
+            client_kwargs["base_url"] = OPENAI_BASE_URL
+        client = OpenAI(**client_kwargs)
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=OPENAI_MODEL,
             max_tokens=1024,
             messages=[
                 {
