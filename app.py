@@ -15,15 +15,16 @@ from types import ModuleType
 os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
 
 # Fallback stub used if neither pure-Python charset_normalizer module is available.
+def _empty_guess_stub(*args, **kwargs):
+    # Indicate no encoding guesses; callers can handle empty results safely.
+    return []
+
 def _create_stub_module() -> ModuleType:
     """Return a minimal charset_normalizer stub that yields no guesses."""
     stub = ModuleType("charset_normalizer_stub")
-    def _stub_function(*args, **kwargs):
-        # Indicate no encoding guesses; callers can handle empty results safely.
-        return []
-    stub.from_bytes = _stub_function
-    stub.from_fp = _stub_function
-    stub.from_path = _stub_function
+    stub.from_bytes = _empty_guess_stub
+    stub.from_fp = _empty_guess_stub
+    stub.from_path = _empty_guess_stub
     stub.is_binary = lambda *args, **kwargs: False
     return stub
 
@@ -46,6 +47,7 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         return None
 
     def create_module(self, spec):
+        """Defer module creation to the default machinery."""
         return None
 
     def exec_module(self, module):
@@ -60,7 +62,6 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
                 break
             except ImportError:
                 logging.debug("charset_normalizer fallback %s unavailable", candidate)
-                pass
 
         if fallback is None:
             fallback = _create_stub_module()
