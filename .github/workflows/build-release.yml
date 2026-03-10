@@ -95,7 +95,27 @@ jobs:
             ls -al .
             exit 1
           fi
-          "./$BIN" --help
+          "./$BIN" &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+
+          ready=0
+          for i in {1..30}; do
+            if curl -fsS -o /dev/null http://127.0.0.1:5050/; then
+              echo "Server responded"
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            echo "Server did not respond in time"
+            exit 1
+          fi
+
+          kill "$pid" 2>/dev/null || true
+          wait "$pid" 2>/dev/null || true
 
       - name: Prepare artifact
         id: prep

@@ -397,5 +397,5 @@ def submit():
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     debug = os.getenv("FLASK_DEBUG", "0") == "1"
-    print("\n  HSA Receipt Tracker → http://localhost:5050\n")
+    print("\n  HSA Receipt Tracker -> http://localhost:5050\n")
     app.run(debug=debug, port=5050)
