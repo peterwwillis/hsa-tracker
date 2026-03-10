@@ -114,9 +114,6 @@ jobs:
             exit 1
           fi
 
-          kill "$pid" 2>/dev/null || true
-          wait "$pid" 2>/dev/null || true
-
       - name: Prepare artifact
         id: prep
         shell: bash
