@@ -36,29 +36,59 @@ jobs:
         run: uv sync --extra build
 
       - name: Build single binary
-        run: uv run pyinstaller hsa_tracker.spec --clean
+        shell: bash
+        run: |
+          set -eo pipefail
+          uv run python -m nuitka --onefile --standalone \
+            --include-data-dir=templates=templates \
+            --output-filename=hsa-tracker \
+            app.py
+
+      - name: Locate binary
+        id: locate
+        shell: bash
+        run: |
+          set -eo pipefail
+          OS="${{ runner.os }}"
+          BASE="hsa-tracker"
+          BIN="$BASE"
+          if [ "$OS" = "Windows" ]; then BIN="hsa-tracker.exe"; fi
+          # Nuitka onefile on macOS can emit a `.bin` suffix (to avoid clashing with app bundles); fall back if so.
+          if [ "$OS" = "macOS" ] && [ ! -f "$BIN" ] && [ -f "${BASE}.bin" ]; then BIN="${BASE}.bin"; fi
+          if [ ! -f "$BIN" ]; then
+            echo "Binary $BIN not found"
+            ls -al .
+            exit 1
+          fi
+          DEST="hsa-tracker-$(echo "$OS" | tr '[:upper:]' '[:lower:]')"
+          case "$OS" in
+            Windows) DEST="${DEST}.exe" ;;
+            # Mirror Nuitka's macOS `.bin` output when present so the artifact name matches.
+            macOS) if [ "$BIN" = "${BASE}.bin" ]; then DEST="${DEST}.bin"; fi ;;
+          esac
+          echo "bin=$BIN" >> "$GITHUB_OUTPUT"
+          echo "dest=$DEST" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test binary
         shell: bash
         run: |
           set -eo pipefail
-          OS="${{ runner.os }}"
-          EXT=""
-          if [ "$OS" = "Windows" ]; then EXT=".exe"; fi
-          BIN="dist/hsa-tracker${EXT}"
-          "$BIN" --help
+          BIN="${{ steps.locate.outputs.bin }}"
+          if [ ! -f "$BIN" ]; then
+            echo "Binary $BIN not found"
+            ls -al .
+            exit 1
+          fi
+          "./$BIN" --help
 
       - name: Prepare artifact
         id: prep
         shell: bash
         run: |
-          OS="${{ runner.os }}"
-          EXT=""
-          if [ "$OS" = "Windows" ]; then EXT=".exe"; fi
-          SRC="dist/hsa-tracker${EXT}"
-          DEST="hsa-tracker-$(echo "$OS" | tr '[:upper:]' '[:lower:]')${EXT}"
+          BIN="${{ steps.locate.outputs.bin }}"
+          DEST="${{ steps.locate.outputs.dest }}"
           mkdir -p upload
-          cp "$SRC" "upload/$DEST"
+          cp "$BIN" "upload/$DEST"
           echo "asset=upload/$DEST" >> "$GITHUB_OUTPUT"
           echo "name=$DEST" >> "$GITHUB_OUTPUT"
 
