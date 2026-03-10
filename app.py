@@ -3,9 +3,6 @@ HSA Receipt Tracker
 Drop a PDF receipt → extracts data → files it in Google Drive → logs it in your Sheet.
 """
 
-import importlib
-import importlib.abc
-import importlib.util
 import json
 import logging
 import os
@@ -13,69 +10,11 @@ import hashlib
 import sys
 from datetime import datetime
 from pathlib import Path
-from types import ModuleType
 
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.INFO)
 
 os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
-
-_MYPYC_SUFFIX = "__mypyc"
-
-# Fallback stub used if neither pure-Python charset_normalizer module is available.
-def _empty_guess_stub(*args, **kwargs):
-    # Indicate no encoding guesses; callers can handle empty results safely.
-    return []
-
-def _create_stub_module() -> ModuleType:
-    """Return a minimal charset_normalizer stub that yields no guesses."""
-    stub = ModuleType("charset_normalizer_stub")
-    # Minimal API surface mirroring charset_normalizer; each returns empty results.
-    stub.from_bytes = _empty_guess_stub
-    stub.from_fp = _empty_guess_stub
-    stub.from_path = _empty_guess_stub
-    stub.is_binary = lambda *args, **kwargs: False
-    return stub
-
-def _resolve_charset_fallback() -> ModuleType:
-    for candidate in ("charset_normalizer.md", "charset_normalizer.cd"):
-        try:
-            return importlib.import_module(candidate)
-        except ImportError:
-            continue
-    logging.warning("charset_normalizer mypyc extensions missing; using stub fallback")
-    return _create_stub_module()
-
-# Ensure charset_normalizer never fails on missing mypyc extensions packaged by PyInstaller.
-# We redirect any charset_normalizer.*__mypyc import to the pure-Python fallback module.
-class _MypycLoader(importlib.abc.Loader):
-    """Load charset_normalizer MyPyC modules using pure-Python fallbacks."""
-
-    def create_module(self, spec):
-        """Defer module creation to the default machinery."""
-        return None
-
-    def exec_module(self, module):
-        """Resolve to md → cd → stub to keep charset_normalizer importable."""
-        fallback = _resolve_charset_fallback()
-        module.__dict__.update(fallback.__dict__)
-
-class _MypycRedirector(importlib.abc.MetaPathFinder):
-    """Redirect charset_normalizer MyPyC imports to pure-Python fallbacks (or stub).
-
-    PyInstaller-built binaries can miss hashed MyPyC extension modules. This
-    meta-path finder ensures any charset_normalizer.*__mypyc import resolves to
-    the available pure-Python module so startup never crashes.
-    """
-    def find_spec(self, fullname, path=None, target=None):
-        """Return a loader spec for charset_normalizer hashed MyPyC modules."""
-        parts = fullname.split(".")
-        # MyPyC modules are two-part names (e.g., charset_normalizer.81d...__mypyc).
-        if len(parts) == 2 and parts[0] == "charset_normalizer" and parts[1].endswith(_MYPYC_SUFFIX):
-            return importlib.util.spec_from_loader(fullname, _MypycLoader())
-        return None
-
-sys.meta_path.insert(0, _MypycRedirector())
 
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
@@ -91,10 +30,10 @@ from googleapiclient.http import MediaFileUpload
 def _runtime_paths():
     """Resolve bundle (read-only) and data (writable) roots.
 
-    When packaged with PyInstaller, code and templates live under the extracted
-    bundle path (sys._MEIPASS) while the executable sits beside a writable
-    directory. We default writable data to the executable's directory but allow
-    overriding via HSA_DATA_DIR.
+    When packaged (e.g., onefile builds), code and templates may live under an
+    extracted bundle path (sys._MEIPASS) while the executable sits beside a
+    writable directory. We default writable data to the executable's directory
+    but allow overriding via HSA_DATA_DIR.
     """
     if getattr(sys, "frozen", False):
         bundle_root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))

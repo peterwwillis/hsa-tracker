@@ -19,14 +19,17 @@ You will also need:
 
 ## Single-file binaries (macOS, Windows, Linux)
 
-You can package the app as a single executable with PyInstaller:
+Package with Nuitka:
 
 ```bash
 uv sync --extra build
-uv run pyinstaller hsa_tracker.spec --clean
+uv run python -m nuitka --onefile --standalone \
+  --include-data-dir=templates=templates \
+  --output-filename=hsa-tracker \
+  app.py
 ```
 
-The binary will be written to `dist/` (`hsa-tracker` on macOS/Linux, `hsa-tracker.exe` on Windows).
+The binary is written to the repo root (`hsa-tracker` on macOS/Linux, `hsa-tracker.exe` on Windows). Nuitka also creates a `hsa-tracker.build/` directory that can be removed after the build.
 
 Runtime files live next to the binary by default (`.env`, `credentials.json`, `token.json`, `receipt_hashes.json`, `uploads/`). To keep them somewhere else, set `HSA_DATA_DIR=/path/to/writable/dir` before launching the binary.
 
