@@ -51,8 +51,6 @@ jobs:
           uv run python -m nuitka --onefile --standalone \
             --include-data-dir=templates=templates \
             --assume-yes-for-downloads \
-            --show-progress \
-            --verbose \
             --output-filename=hsa-tracker \
             app.py
           python - <<'PY'
