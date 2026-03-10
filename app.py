@@ -16,6 +16,12 @@ os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
 # Ensure charset_normalizer never fails on missing mypyc extensions packaged by PyInstaller.
 # We redirect any charset_normalizer.*__mypyc import to the pure-Python fallback module.
 class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+    """Redirect charset_normalizer MyPyC imports to pure-Python fallbacks (or stub).
+
+    PyInstaller-built binaries can miss hashed MyPyC extension modules. This
+    meta-path loader ensures any charset_normalizer.*__mypyc import resolves to
+    the available pure-Python module so startup never crashes.
+    """
     def find_spec(self, fullname, path=None, target=None):
         parts = fullname.split(".")
         if len(parts) >= 2 and parts[0] == "charset_normalizer" and parts[-1].endswith("__mypyc"):
@@ -27,6 +33,8 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
     def exec_module(self, module):
         fallback = None
+        # Try the pure-Python implementations first; md is preferred, cd is the
+        # compatible alternate shipped alongside the compiled extensions.
         for candidate in ("charset_normalizer.md", "charset_normalizer.cd"):
             try:
                 fallback = importlib.import_module(candidate)
@@ -36,11 +44,11 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
         if fallback is None:
             fallback = ModuleType("charset_normalizer_stub")
-            def _return_empty_list(*args, **kwargs):
+            def _stub_fallback(*args, **kwargs):
                 return []
-            fallback.from_bytes = _return_empty_list
-            fallback.from_fp = _return_empty_list
-            fallback.from_path = _return_empty_list
+            fallback.from_bytes = _stub_fallback
+            fallback.from_fp = _stub_fallback
+            fallback.from_path = _stub_fallback
             fallback.is_binary = lambda *args, **kwargs: False
         module.__dict__.update(fallback.__dict__)
 
