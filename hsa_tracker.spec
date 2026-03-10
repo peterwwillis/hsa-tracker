@@ -2,17 +2,26 @@
 from pathlib import Path
 
 from PyInstaller.building.build_main import Analysis, EXE, PYZ
+from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
 
+binaries = []
 datas = [("templates", "templates")]
+hiddenimports = []
+
+# Ensure charset_normalizer compiled artifacts are bundled
+cn_datas, cn_binaries, cn_hiddenimports = collect_all("charset_normalizer")
+datas += cn_datas
+binaries += cn_binaries
+hiddenimports += cn_hiddenimports
 
 a = Analysis(
     ["app.py"],
     pathex=[str(Path(".").resolve())],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
