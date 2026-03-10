@@ -41,7 +41,7 @@ jobs:
       - name: Smoke test binary
         shell: bash
         run: |
-          set -euo pipefail
+          set -eo pipefail
           OS="${{ runner.os }}"
           EXT=""
           if [ "$OS" = "Windows" ]; then EXT=".exe"; fi
