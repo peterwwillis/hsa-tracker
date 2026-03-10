@@ -3,13 +3,16 @@ HSA Receipt Tracker
 Drop a PDF receipt → extracts data → files it in Google Drive → logs it in your Sheet.
 """
 
-import hashlib
-import logging
-import os
 import importlib
 import importlib.abc
 import importlib.util
+import json
+import logging
+import os
+import hashlib
 import sys
+from datetime import datetime
+from pathlib import Path
 from types import ModuleType
 
 os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
@@ -67,15 +70,13 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
         if fallback is None:
             fallback = _create_stub_module()
+            if not logging.getLogger().handlers:
+                logging.basicConfig(level=logging.INFO)
             logging.info("charset_normalizer mypyc extensions missing; using stub fallback")
         module.__dict__.update(fallback.__dict__)
 
 
-sys.meta_path.append(_MypycRedirector())
-
-import json
-from datetime import datetime
-from pathlib import Path
+sys.meta_path.insert(0, _MypycRedirector())
 
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
