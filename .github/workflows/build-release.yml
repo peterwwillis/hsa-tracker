@@ -38,6 +38,15 @@ jobs:
       - name: Build single binary
         run: uv run pyinstaller hsa_tracker.spec --clean
 
+      - name: Smoke test binary
+        shell: bash
+        run: |
+          OS="${{ runner.os }}"
+          EXT=""
+          if [ "$OS" = "Windows" ]; then EXT=".exe"; fi
+          BIN="dist/hsa-tracker${EXT}"
+          "$BIN" --help >/dev/null
+
       - name: Prepare artifact
         id: prep
         shell: bash
