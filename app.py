@@ -15,6 +15,9 @@ from datetime import datetime
 from pathlib import Path
 from types import ModuleType
 
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO)
+
 os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
 
 _MYPYC_SUFFIX = "__mypyc"
@@ -41,12 +44,13 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
     PyInstaller-built binaries can miss hashed MyPyC extension modules. This
     meta-path loader ensures any charset_normalizer.*__mypyc import resolves to
     the available pure-Python module so startup never crashes. Finder/loader are
-    combined here to keep the interception logic together.
+    combined here intentionally to keep the interception logic together for this
+    narrow use-case.
     """
     def find_spec(self, fullname, path=None, target=None):
         """Return a loader spec for charset_normalizer hashed MyPyC modules."""
         parts = fullname.split(".")
-        # MyPyC modules can be hashed (e.g., 81d...__mypyc) or named md__mypyc/cd__mypyc.
+        # MyPyC modules are typically two-part names (e.g., charset_normalizer.81d...__mypyc).
         if len(parts) >= 2 and parts[0] == "charset_normalizer" and parts[-1].endswith(_MYPYC_SUFFIX):
             return importlib.util.spec_from_loader(fullname, self)
         return None
@@ -70,8 +74,6 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
         if fallback is None:
             fallback = _create_stub_module()
-            if not logging.getLogger().handlers:
-                logging.basicConfig(level=logging.INFO)
             logging.info("charset_normalizer mypyc extensions missing; using stub fallback")
         module.__dict__.update(fallback.__dict__)
 
