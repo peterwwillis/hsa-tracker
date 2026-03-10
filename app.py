@@ -5,12 +5,13 @@ Drop a PDF receipt → extracts data → files it in Google Drive → logs it in
 
 import hashlib
 import os
+
+os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
+
 import json
 import sys
 from datetime import datetime
 from pathlib import Path
-
-os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
 
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
