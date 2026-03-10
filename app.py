@@ -3,11 +3,18 @@ HSA Receipt Tracker
 Drop a PDF receipt → extracts data → files it in Google Drive → logs it in your Sheet.
 """
 
-import hashlib
-import os
 import json
+import logging
+import os
+import hashlib
+import sys
 from datetime import datetime
 from pathlib import Path
+
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO)
+
+os.environ.setdefault("CHARSET_NORMALIZER_FORCE_PUREPY", "1")
 
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
@@ -20,14 +27,36 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
+def _runtime_paths():
+    """Resolve bundle (read-only) and data (writable) roots.
+
+    When packaged (e.g., onefile builds), code and templates may live under an
+    extracted bundle path (sys._MEIPASS) while the executable sits beside a
+    writable directory. We default writable data to the executable's directory
+    but allow overriding via HSA_DATA_DIR.
+    """
+    if getattr(sys, "frozen", False):
+        bundle_root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+        data_root = Path(os.getenv("HSA_DATA_DIR", Path(sys.executable).resolve().parent))
+    else:
+        bundle_root = Path(__file__).parent
+        data_root = Path(os.getenv("HSA_DATA_DIR", bundle_root))
+    return bundle_root, data_root
+
+
+BUNDLE_DIR, DATA_DIR = _runtime_paths()
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+# Load env from the bundled/writable data dir first, then allow local overrides.
+load_dotenv(DATA_DIR / ".env")
 load_dotenv()
 
-app = Flask(__name__)
-APP_DIR = Path(__file__).parent
-app.config["UPLOAD_FOLDER"] = APP_DIR / "uploads"
-app.config["UPLOAD_FOLDER"].mkdir(exist_ok=True)
+TEMPLATE_DIR = BUNDLE_DIR / "templates"
+app = Flask(__name__, template_folder=str(TEMPLATE_DIR))
+app.config["UPLOAD_FOLDER"] = DATA_DIR / "uploads"
+app.config["UPLOAD_FOLDER"].mkdir(exist_ok=True, parents=True)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
-HASH_STORE_PATH = APP_DIR / "receipt_hashes.json"
+HASH_STORE_PATH = DATA_DIR / "receipt_hashes.json"
+
 
 # ---------------------------------------------------------------------------
 # Configuration — override via .env or environment variables
@@ -60,8 +89,8 @@ def missing_google_config() -> list[str]:
 def get_google_creds():
     """Get or refresh Google OAuth2 credentials (desktop app flow)."""
     creds = None
-    token_path = APP_DIR / "token.json"
-    creds_path = APP_DIR / "credentials.json"
+    token_path = DATA_DIR / "token.json"
+    creds_path = DATA_DIR / "credentials.json"
 
     if token_path.exists():
         creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
@@ -368,5 +397,5 @@ def submit():
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     debug = os.getenv("FLASK_DEBUG", "0") == "1"
-    print("\n  HSA Receipt Tracker → http://localhost:5050\n")
+    print("\n  HSA Receipt Tracker -> http://localhost:5050\n")
     app.run(debug=debug, port=5050)

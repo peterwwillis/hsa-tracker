@@ -13,3 +13,6 @@ dependencies = [
     "google-api-python-client>=2.0",
     "openai>=1.0",
 ]
+
+[project.optional-dependencies]
+build = ["nuitka>=4.0.3"]

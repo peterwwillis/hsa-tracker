@@ -17,6 +17,22 @@ You will also need:
 
 `SETUP.md` covers the full Google Cloud, OAuth, and `launchd` setup.
 
+## Single-file binaries (macOS, Windows, Linux)
+
+Package with Nuitka:
+
+```bash
+uv sync --extra build
+uv run python -m nuitka --onefile --standalone \
+  --include-data-dir=templates=templates \
+  --output-filename=hsa-tracker \
+  app.py
+```
+
+The binary is written to the repo root (`hsa-tracker` on macOS/Linux, `hsa-tracker.exe` on Windows). Nuitka also creates a `hsa-tracker.build/` directory that can be removed after the build.
+
+Runtime files live next to the binary by default (`.env`, `credentials.json`, `token.json`, `receipt_hashes.json`, `uploads/`). To keep them somewhere else, set `HSA_DATA_DIR=/path/to/writable/dir` before launching the binary.
+
 ## What it does
 
 - Upload a PDF receipt from the browser

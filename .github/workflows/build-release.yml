@@ -1,0 +1,205 @@
+name: Build and Release Binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        run: python -m pip install uv
+
+      - name: Sync dependencies (build extra)
+        run: uv sync --extra build
+
+      - name: Build single binary
+        shell: bash
+        env:
+          # Ensure Nuitka can download required helper tools (e.g., Dependency Walker on Windows) non-interactively.
+          NUITKA_DOWNLOAD_DEPENDENCY_WALKER: "1"
+          NUITKA_ASSUME_YES_FOR_DOWNLOADS: "1"
+        run: |
+          set -eo pipefail
+          python - <<'PY'
+          import datetime
+          ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+          print("Starting Nuitka onefile build at", ts, flush=True)
+          PY
+          uv run python -m nuitka --onefile --standalone \
+            --include-data-dir=templates=templates \
+            --assume-yes-for-downloads \
+            --output-filename=hsa-tracker \
+            app.py
+          python - <<'PY'
+          import datetime
+          ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+          print("Completed Nuitka build at", ts, flush=True)
+          PY
+
+      - name: Locate binary
+        id: locate
+        shell: bash
+        run: |
+          set -eo pipefail
+          OS="${{ runner.os }}"
+          BASE="hsa-tracker"
+          BIN="$BASE"
+          if [ "$OS" = "Windows" ]; then BIN="hsa-tracker.exe"; fi
+          # Nuitka onefile on macOS can emit a `.bin` suffix (to avoid clashing with app bundles); fall back if so.
+          if [ "$OS" = "macOS" ] && [ ! -f "$BIN" ] && [ -f "${BASE}.bin" ]; then BIN="${BASE}.bin"; fi
+          if [ ! -f "$BIN" ]; then
+            echo "Binary $BIN not found"
+            ls -al .
+            exit 1
+          fi
+          DEST="hsa-tracker-$(echo "$OS" | tr '[:upper:]' '[:lower:]')"
+          case "$OS" in
+            Windows) DEST="${DEST}.exe" ;;
+            # Mirror Nuitka's macOS `.bin` output when present so the artifact name matches.
+            macOS) if [ "$BIN" = "${BASE}.bin" ]; then DEST="${DEST}.bin"; fi ;;
+          esac
+          echo "bin=$BIN" >> "$GITHUB_OUTPUT"
+          echo "dest=$DEST" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test binary
+        shell: bash
+        run: |
+          set -eo pipefail
+          BIN="${{ steps.locate.outputs.bin }}"
+          if [ ! -f "$BIN" ]; then
+            echo "Binary $BIN not found"
+            ls -al .
+            exit 1
+          fi
+          PORT=5050
+          MAX_RETRIES=30
+          RETRY_DELAY=1
+          "./$BIN" &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+
+          ready=0
+          for ((i=1; i<=MAX_RETRIES; i++)); do
+            if curl -fsS -o /dev/null "http://127.0.0.1:${PORT}/"; then
+              echo "Server responded"
+              ready=1
+              break
+            fi
+            sleep "$RETRY_DELAY"
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            echo "Server did not respond in time"
+            exit 1
+          fi
+
+      - name: Prepare artifact
+        id: prep
+        shell: bash
+        run: |
+          BIN="${{ steps.locate.outputs.bin }}"
+          DEST="${{ steps.locate.outputs.dest }}"
+          mkdir -p upload
+          cp "$BIN" "upload/$DEST"
+          echo "asset=upload/$DEST" >> "$GITHUB_OUTPUT"
+          echo "name=$DEST" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.prep.outputs.name }}
+          path: ${{ steps.prep.outputs.asset }}
+          if-no-files-found: error
+
+  release:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      release_needed: ${{ steps.meta.outputs.release_needed }}
+      tag_name: ${{ steps.meta.outputs.tag_name }}
+      release_name: ${{ steps.meta.outputs.release_name }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+    steps:
+      - name: Determine release conditions
+        id: meta
+        env:
+          IS_TAG: ${{ github.ref_type == 'tag' }}
+          REF_NAME: ${{ github.ref_name }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+        run: |
+          release_needed=false
+          tag_name=""
+          release_name=""
+          prerelease=true
+          LABEL_MATCH=false
+
+          if [ "${IS_TAG}" = "true" ]; then
+            release_needed=true
+            tag_name="${REF_NAME}"
+            release_name="Release ${tag_name}"
+            prerelease=false
+            # Stable releases require tags like v1.2, 1.2, v1.2.3, or 1.2.3; anything else is treated as a prerelease.
+            if ! [[ "${tag_name}" =~ ^v?[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+              prerelease=true
+            fi
+          elif [ "${IS_PR}" = "true" ]; then
+            PR_NUMBER="$(jq -r '.pull_request.number // ""' "$GITHUB_EVENT_PATH")"
+            if jq -e '.pull_request.labels[]? | select(.name=="release_newver")' "$GITHUB_EVENT_PATH" >/dev/null; then
+              LABEL_MATCH=true
+            fi
+            if [ "${LABEL_MATCH}" = "true" ]; then
+              release_needed=true
+              SHA_SHORT="$(echo "$GITHUB_SHA" | cut -c1-7)"
+              tag_name="pr-${PR_NUMBER}-${SHA_SHORT}"
+              release_name="PR #${PR_NUMBER} preview"
+              prerelease=true
+            fi
+          fi
+
+          echo "release_needed=${release_needed}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
+          echo "release_name=${release_name}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
+
+      - name: Download artifacts
+        if: steps.meta.outputs.release_needed == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish release
+        if: steps.meta.outputs.release_needed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: ${{ steps.meta.outputs.release_name }}
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
+          generate_release_notes: true
+          files: artifacts/**/*

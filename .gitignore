@@ -4,6 +4,8 @@ __pycache__/
 build/
 dist/
 wheels/
+*.dist/
+*.build/
 *.egg-info
 *.log
 .DS_Store
