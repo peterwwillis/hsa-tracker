@@ -95,18 +95,21 @@ jobs:
             ls -al .
             exit 1
           fi
+          PORT=5050
+          MAX_RETRIES=30
+          RETRY_DELAY=1
           "./$BIN" &
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true' EXIT
 
           ready=0
-          for i in {1..30}; do
-            if curl -fsS -o /dev/null http://127.0.0.1:5050/; then
+          for ((i=1; i<=MAX_RETRIES; i++)); do
+            if curl -fsS -o /dev/null "http://127.0.0.1:${PORT}/"; then
               echo "Server responded"
               ready=1
               break
             fi
-            sleep 1
+            sleep "$RETRY_DELAY"
           done
 
           if [ "$ready" -ne 1 ]; then
