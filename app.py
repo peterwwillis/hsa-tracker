@@ -30,30 +30,26 @@ def _empty_guess_stub(*args, **kwargs):
 def _create_stub_module() -> ModuleType:
     """Return a minimal charset_normalizer stub that yields no guesses."""
     stub = ModuleType("charset_normalizer_stub")
+    # Minimal API surface mirroring charset_normalizer; each returns empty results.
     stub.from_bytes = _empty_guess_stub
     stub.from_fp = _empty_guess_stub
     stub.from_path = _empty_guess_stub
     stub.is_binary = lambda *args, **kwargs: False
     return stub
 
+def _resolve_charset_fallback() -> ModuleType:
+    for candidate in ("charset_normalizer.md", "charset_normalizer.cd"):
+        try:
+            return importlib.import_module(candidate)
+        except ImportError:
+            continue
+    logging.warning("charset_normalizer mypyc extensions missing; using stub fallback")
+    return _create_stub_module()
+
 # Ensure charset_normalizer never fails on missing mypyc extensions packaged by PyInstaller.
 # We redirect any charset_normalizer.*__mypyc import to the pure-Python fallback module.
-class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
-    """Redirect charset_normalizer MyPyC imports to pure-Python fallbacks (or stub).
-
-    PyInstaller-built binaries can miss hashed MyPyC extension modules. This
-    meta-path loader ensures any charset_normalizer.*__mypyc import resolves to
-    the available pure-Python module so startup never crashes. Finder/loader are
-    combined here intentionally to keep the interception logic together for this
-    narrow use-case.
-    """
-    def find_spec(self, fullname, path=None, target=None):
-        """Return a loader spec for charset_normalizer hashed MyPyC modules."""
-        parts = fullname.split(".")
-        # MyPyC modules are typically two-part names (e.g., charset_normalizer.81d...__mypyc).
-        if len(parts) >= 2 and parts[0] == "charset_normalizer" and parts[-1].endswith(_MYPYC_SUFFIX):
-            return importlib.util.spec_from_loader(fullname, self)
-        return None
+class _MypycLoader(importlib.abc.Loader):
+    """Load charset_normalizer MyPyC modules using pure-Python fallbacks."""
 
     def create_module(self, spec):
         """Defer module creation to the default machinery."""
@@ -61,22 +57,23 @@ class _MypycRedirector(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
     def exec_module(self, module):
         """Resolve to md → cd → stub to keep charset_normalizer importable."""
-        fallback = None
-        # Try the pure-Python implementations first:
-        # - md: main detection path
-        # - cd: compatible alternate shipped with compiled extensions
-        for candidate in ("charset_normalizer.md", "charset_normalizer.cd"):
-            try:
-                fallback = importlib.import_module(candidate)
-                break
-            except ImportError:
-                pass
-
-        if fallback is None:
-            fallback = _create_stub_module()
-            logging.info("charset_normalizer mypyc extensions missing; using stub fallback")
+        fallback = _resolve_charset_fallback()
         module.__dict__.update(fallback.__dict__)
 
+class _MypycRedirector(importlib.abc.MetaPathFinder):
+    """Redirect charset_normalizer MyPyC imports to pure-Python fallbacks (or stub).
+
+    PyInstaller-built binaries can miss hashed MyPyC extension modules. This
+    meta-path finder ensures any charset_normalizer.*__mypyc import resolves to
+    the available pure-Python module so startup never crashes.
+    """
+    def find_spec(self, fullname, path=None, target=None):
+        """Return a loader spec for charset_normalizer hashed MyPyC modules."""
+        parts = fullname.split(".")
+        # MyPyC modules are two-part names (e.g., charset_normalizer.81d...__mypyc).
+        if len(parts) == 2 and parts[0] == "charset_normalizer" and parts[1].endswith(_MYPYC_SUFFIX):
+            return importlib.util.spec_from_loader(fullname, _MypycLoader())
+        return None
 
 sys.meta_path.insert(0, _MypycRedirector())
 
